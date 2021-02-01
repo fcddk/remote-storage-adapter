@@ -40,10 +40,10 @@ import (
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
 
-	"github.com/prometheus/prometheus/prompb"
-	"graphite"
-	"influxdb"
-	"opentsdb"
+	"github.com/fcddk/remote_storage_adpter/graphite"
+	"github.com/fcddk/remote_storage_adpter/influxdb"
+	"github.com/fcddk/remote_storage_adpter/opentsdb"
+	"github.com/fcddk/remote_storage_adpter/prompb"
 )
 
 type config struct {
