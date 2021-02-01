@@ -1,4 +1,4 @@
-module github.com/fcddk/remote_storage_adpter
+module remote_storage_adpter
 
 go 1.14
 
