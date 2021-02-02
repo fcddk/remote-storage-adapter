@@ -40,11 +40,11 @@ import (
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
 
-	whitelistConf "remote_storage_adpter/config"
-	"remote_storage_adpter/graphite"
-	"remote_storage_adpter/influxdb"
-	"remote_storage_adpter/opentsdb"
-	"remote_storage_adpter/prompb"
+	whitelistConf "remote_storage_adapter/config"
+	"remote_storage_adapter/graphite"
+	"remote_storage_adapter/influxdb"
+	"remote_storage_adapter/opentsdb"
+	"remote_storage_adapter/prompb"
 )
 
 type orginConfig struct {

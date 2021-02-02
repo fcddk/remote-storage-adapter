@@ -1,7 +1,7 @@
 package config
 
 import (
-	"remote_storage_adpter/util/testutil"
+	"remote_storage_adapter/util/testutil"
 	"testing"
 )
 

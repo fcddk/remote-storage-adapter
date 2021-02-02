@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"remote_storage_adpter/castrate"
+	"remote_storage_adapter/castrate"
 	"strings"
 
 	"github.com/go-kit/kit/log"
@@ -28,7 +28,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
 
-	"remote_storage_adpter/prompb"
+	"remote_storage_adapter/prompb"
 )
 
 // Client allows sending batches of Prometheus samples to InfluxDB.
