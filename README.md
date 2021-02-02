@@ -19,25 +19,25 @@ go build
 Graphite example:
 
 ```
-./remote_storage_adapter --graphite-address=localhost:8080
+./remote-storage-adapter --graphite-address=localhost:8080
 ```
 
 OpenTSDB example:
 
 ```
-./remote_storage_adapter --opentsdb-url=http://localhost:8081/
+./remote-storage-adapter --opentsdb-url=http://localhost:8081/
 ```
 
 InfluxDB example:
 
 ```
-./remote_storage_adapter --influxdb-url=http://localhost:8086/ --influxdb.database=prometheus --influxdb.retention-policy=autogen
+./remote-storage-adapter --influxdb-url=http://localhost:8086/ --influxdb.database=prometheus --influxdb.retention-policy=autogen
 ```
 
 To show all flags:
 
 ```
-./remote_storage_adapter -h
+./remote-storage-adapter -h
 ```
 
 ## Configuring Prometheus

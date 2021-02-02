@@ -5,8 +5,8 @@ ENV INFLUXDB_DATABASE=prometheus
 ENV INFLUXDB_RETENTION_POLICY=autogen
 ENV INFLUXDB_USER=influx
 ENV INFLUXDB_PW=influx
-COPY remote_storage_adapter /usr/bin/remote_storage_adapter
+COPY remote-storage-adapter /usr/bin/remote-storage-adapter
 
 EXPOSE 9201
-CMD ["remote_storage_adapter"]
-#CMD ["remote_storage_adapter", "-influxdb-url=$INFLUXDB_URL", "-influxdb.database=$INFLUXDB_DATABASE", "-influxdb.retention-policy=$INFLUXDB_RETENTION_POLICY", "-influxdb.username=$INFLUXDB_USER"]
+CMD ["remote-storage-adapter"]
+#CMD ["remote-storage-adapter", "-influxdb-url=$INFLUXDB_URL", "-influxdb.database=$INFLUXDB_DATABASE", "-influxdb.retention-policy=$INFLUXDB_RETENTION_POLICY", "-influxdb.username=$INFLUXDB_USER"]

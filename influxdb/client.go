@@ -16,9 +16,9 @@ package influxdb
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/fcddk/remote-storage-adapter/castrate"
 	"math"
 	"os"
-	"remote_storage_adapter/castrate"
 	"strings"
 
 	"github.com/go-kit/kit/log"
@@ -28,7 +28,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
 
-	"remote_storage_adapter/prompb"
+	"github.com/fcddk/remote-storage-adapter/prompb"
 )
 
 // Client allows sending batches of Prometheus samples to InfluxDB.
