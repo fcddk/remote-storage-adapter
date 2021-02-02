@@ -3,8 +3,8 @@ package config
 // GlobalConfig configures values that are used across other configuration
 // objects.
 type GlobalConfig struct {
-	MeasurementsWhitelist string `yaml:"measurements_whitelist,omitempty"`
-	TagsWhitelist         string `yaml:"tags_whitelist,omitempty"`
+	MeasurementsWhitelist []string `yaml:"measurements_whitelist,omitempty"`
+	TagsWhitelist         []string `yaml:"tags_whitelist,omitempty"`
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
@@ -16,5 +16,6 @@ func (c *GlobalConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal((*plain)(gc)); err != nil {
 		return err
 	}
+	*c = *gc
 	return nil
 }

@@ -40,13 +40,14 @@ import (
 	"github.com/prometheus/common/promlog"
 	"github.com/prometheus/common/promlog/flag"
 
+	whitelistConf "remote_storage_adpter/config"
 	"remote_storage_adpter/graphite"
 	"remote_storage_adpter/influxdb"
 	"remote_storage_adpter/opentsdb"
 	"remote_storage_adpter/prompb"
 )
 
-type config struct {
+type orginConfig struct {
 	graphiteAddress         string
 	graphiteTransport       string
 	graphitePrefix          string
@@ -60,6 +61,7 @@ type config struct {
 	listenAddr              string
 	telemetryPath           string
 	promlogConfig           promlog.Config
+	whitelistConfPath       string
 }
 
 var (
@@ -102,22 +104,32 @@ func init() {
 
 func main() {
 	cfg := parseFlags()
+	logger := promlog.New(&cfg.promlogConfig)
+	//init config
+	whitelistC, err := whitelistConf.LoadFile(cfg.whitelistConfPath)
+	if err != nil {
+		level.Error(logger).Log("msg", "Failed to load whitelist", "err", err)
+		os.Exit(1)
+	}
+
+	//init data
+	influxdb.UpdateMeasurementsWhitelist(whitelistC.GlobalConfig.MeasurementsWhitelist)
+	influxdb.UpdateTagsWhitelist(whitelistC.GlobalConfig.TagsWhitelist)
+
 	http.Handle(cfg.telemetryPath, promhttp.Handler())
 
-	logger := promlog.New(&cfg.promlogConfig)
-
 	writers, readers := buildClients(logger, cfg)
-	if err := serve(logger, cfg.listenAddr, writers, readers); err != nil {
+	if err = serve(logger, cfg.listenAddr, writers, readers); err != nil {
 		level.Error(logger).Log("msg", "Failed to listen", "addr", cfg.listenAddr, "err", err)
 		os.Exit(1)
 	}
 }
 
-func parseFlags() *config {
+func parseFlags() *orginConfig {
 	a := kingpin.New(filepath.Base(os.Args[0]), "Remote storage adapter")
 	a.HelpFlag.Short('h')
 
-	cfg := &config{
+	cfg := &orginConfig{
 		influxdbPassword: os.Getenv("INFLUXDB_PW"),
 		promlogConfig:    promlog.Config{},
 	}
@@ -144,6 +156,8 @@ func parseFlags() *config {
 		Default(":9201").StringVar(&cfg.listenAddr)
 	a.Flag("web.telemetry-path", "Address to listen on for web endpoints.").
 		Default("/metrics").StringVar(&cfg.telemetryPath)
+	a.Flag("whitelist.conf.path", "whitelist conf file path").
+		Default("whitelist.yml").StringVar(&cfg.whitelistConfPath)
 
 	flag.AddFlags(a, &cfg.promlogConfig)
 
@@ -167,7 +181,7 @@ type reader interface {
 	Name() string
 }
 
-func buildClients(logger log.Logger, cfg *config) ([]writer, []reader) {
+func buildClients(logger log.Logger, cfg *orginConfig) ([]writer, []reader) {
 	var writers []writer
 	var readers []reader
 	if cfg.graphiteAddress != "" {

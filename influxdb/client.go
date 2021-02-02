@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"remote_storage_adpter/castrate"
 	"strings"
 
 	"github.com/go-kit/kit/log"
@@ -78,6 +79,23 @@ func tagsFromMetric(m model.Metric) map[string]string {
 	return tags
 }
 
+// tagsFromMetric extracts InfluxDB tags from a Prometheus metric.
+func tagsOrFieldFromMetric(m model.Metric) (map[string]string, map[string]string) {
+	tags := make(map[string]string, len(m)-1)
+	fields := make(map[string]string, len(m)-1)
+	for l, v := range m {
+		if l != model.MetricNameLabel {
+			_, hasOk := tagsWhitelist[string(l)]
+			if hasOk {
+				tags[string(l)] = string(v)
+			} else {
+				fields[string(l)] = string(v)
+			}
+		}
+	}
+	return tags, fields
+}
+
 // Write sends a batch of samples to InfluxDB via its HTTP API.
 func (c *Client) Write(samples model.Samples) error {
 	points := make([]*influx.Point, 0, len(samples))
@@ -88,12 +106,29 @@ func (c *Client) Write(samples model.Samples) error {
 			c.ignoredSamples.Inc()
 			continue
 		}
+		tags := make(map[string]string)
+		fields := make(map[string]interface{})
+		//castrate metric name
+		measure := hasMeasurement(string(s.Metric[model.MetricNameLabel]))
+		measure, fieldOne := castrate.CastrateMetricName(measure, string(s.Metric[model.MetricNameLabel]))
+		metricTags, metricFields := tagsOrFieldFromMetric(s.Metric)
+		tags = metricTags
+		for l, v := range metricFields {
+			fields[l] = v
+		}
+		fields[fieldOne] = v
 		p, err := influx.NewPoint(
-			string(s.Metric[model.MetricNameLabel]),
-			tagsFromMetric(s.Metric),
-			map[string]interface{}{"value": v},
+			measure,
+			tags,
+			fields,
 			s.Timestamp.Time(),
 		)
+		//p, err := influx.NewPoint(
+		//	string(s.Metric[model.MetricNameLabel]),
+		//	tagsFromMetric(s.Metric),
+		//	map[string]interface{}{"value": v},
+		//	s.Timestamp.Time(),
+		//)
 		if err != nil {
 			return err
 		}

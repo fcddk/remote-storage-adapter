@@ -31,7 +31,6 @@ func Load(s string) (*Config, error) {
 	// never called. We thus have to set the DefaultConfig at the entry
 	// point as well.
 	//*cfg = DefaultConfig
-
 	err := yaml.UnmarshalStrict([]byte(s), cfg)
 	if err != nil {
 		return nil, err

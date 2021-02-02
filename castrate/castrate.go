@@ -4,7 +4,10 @@ import (
 	"strings"
 )
 
-func CastrateMetricName(name string) (string, string) {
+func CastrateMetricName(mea string, name string) (string, string) {
+	if strings.HasPrefix(name, mea) {
+		return mea, name[len(mea):]
+	}
 	//measurementName :=
 	strings.Trim(name, " ")
 	if name == "" {
