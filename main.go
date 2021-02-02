@@ -144,19 +144,19 @@ func parseFlags() *orginConfig {
 		Default("").StringVar(&cfg.opentsdbURL)
 	a.Flag("influxdb-url", "The URL of the remote InfluxDB server to send samples to. None, if empty.").
 		Default("").StringVar(&cfg.influxdbURL)
-	a.Flag("influxdb.retention-policy", "The InfluxDB retention policy to use.").
+	a.Flag("influxdb-retention-policy", "The InfluxDB retention policy to use.").
 		Default("autogen").StringVar(&cfg.influxdbRetentionPolicy)
-	a.Flag("influxdb.username", "The username to use when sending samples to InfluxDB. The corresponding password must be provided via the INFLUXDB_PW environment variable.").
+	a.Flag("influxdb-username", "The username to use when sending samples to InfluxDB. The corresponding password must be provided via the INFLUXDB_PW environment variable.").
 		Default("").StringVar(&cfg.influxdbUsername)
-	a.Flag("influxdb.database", "The name of the database to use for storing samples in InfluxDB.").
+	a.Flag("influxdb-database", "The name of the database to use for storing samples in InfluxDB.").
 		Default("prometheus").StringVar(&cfg.influxdbDatabase)
 	a.Flag("send-timeout", "The timeout to use when sending samples to the remote storage.").
 		Default("30s").DurationVar(&cfg.remoteTimeout)
-	a.Flag("web.listen-address", "Address to listen on for web endpoints.").
+	a.Flag("web-listen-address", "Address to listen on for web endpoints.").
 		Default(":9201").StringVar(&cfg.listenAddr)
-	a.Flag("web.telemetry-path", "Address to listen on for web endpoints.").
+	a.Flag("web-telemetry-path", "Address to listen on for web endpoints.").
 		Default("/metrics").StringVar(&cfg.telemetryPath)
-	a.Flag("whitelist.conf.path", "whitelist conf file path").
+	a.Flag("whitelist-conf-path", "whitelist conf file path").
 		Default("whitelist.yml").StringVar(&cfg.whitelistConfPath)
 
 	flag.AddFlags(a, &cfg.promlogConfig)
