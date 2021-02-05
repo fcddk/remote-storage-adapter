@@ -204,7 +204,11 @@ func (c *Client) Write(samples model.Samples) error {
 		for l, v := range metricFields {
 			fields[l] = v
 		}
-		fields[fieldOne] = v
+		if fieldOne == "" {
+			fields["value"] = v
+		} else {
+			fields[fieldOne] = v
+		}
 		p, err := influx.NewPoint(
 			measure,
 			tags,
