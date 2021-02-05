@@ -70,8 +70,12 @@ func NewClient(logger log.Logger, conf influx.HTTPConfig, db string, rp string, 
 	}
 	//init adapter
 	ada := cli.createAdapterManager(adapterConf)
+	if ada == nil {
+		level.Error(logger).Log("err", fmt.Errorf("adapter manager is nil"))
+		os.Exit(1)
+	}
 	cli.adapter = ada
-	level.Info(cli.logger).Log("msg", "adapter", ada.measurements)
+	level.Info(cli.logger).Log("msg", "adapter", ada.String())
 	return cli
 }
 
@@ -186,7 +190,7 @@ func (c *Client) createAdapterManager(conf *config.Config) *adapterManager {
 // Write sends a batch of samples to InfluxDB via its HTTP API.
 func (c *Client) Write(samples model.Samples) error {
 	start := time.Now()
-	points := make([]*influx.Point, 0, len(samples))
+	points := make(map[string][]*influx.Point)
 	for _, s := range samples {
 		v := float64(s.Value)
 		if math.IsNaN(v) || math.IsInf(v, 0) {
@@ -205,7 +209,7 @@ func (c *Client) Write(samples model.Samples) error {
 			c.ignoredSamples.Inc()
 			continue
 		}
-		level.Debug(c.logger).Log("msg", "metric", s.Metric[model.MetricNameLabel], "measurement", measure)
+		level.Debug(c.logger).Log("msg", "info", "metric", s.Metric[model.MetricNameLabel], "measurement", measure)
 		//metricTags, metricFields := tagsOrFieldFromMetric(s.Metric)
 		metricTags, metricFields := c.tagsOrFieldFromMetric(s.Metric, measure)
 		if len(metricTags) == 0 {
@@ -237,20 +241,43 @@ func (c *Client) Write(samples model.Samples) error {
 		if err != nil {
 			return err
 		}
-		points = append(points, p)
+		// todo nil error
+		//if c.adapter == nil {
+		//}
+		_, pOk := points[c.adapter.measurements[measure].Database]
+		if !pOk {
+			points[c.adapter.measurements[measure].Database] = make([]*influx.Point, 0)
+		}
+		points[c.adapter.measurements[measure].Database] = append(points[c.adapter.measurements[measure].Database], p)
+		//points = append(points, p)
 	}
 
-	bps, err := influx.NewBatchPoints(influx.BatchPointsConfig{
-		Precision:       "ms",
-		Database:        c.database,
-		RetentionPolicy: c.retentionPolicy,
-	})
-	if err != nil {
-		return err
+	//bps, err := influx.NewBatchPoints(influx.BatchPointsConfig{
+	//	Precision:       "ms",
+	//	Database:        c.database,
+	//	RetentionPolicy: c.retentionPolicy,
+	//})
+	//if err != nil {
+	//	return err
+	//}
+	//bps.AddPoints(points)
+	for name, pointsJob := range points {
+		bps, err := influx.NewBatchPoints(influx.BatchPointsConfig{
+			Precision:       "ms",
+			Database:        name,
+			RetentionPolicy: c.retentionPolicy,
+		})
+		if err != nil {
+			return err
+		}
+		bps.AddPoints(pointsJob)
+		err = c.client.Write(bps)
+		if err != nil {
+			level.Error(c.logger).Log("msg", "failed to write once", "err", err.Error())
+		}
 	}
-	bps.AddPoints(points)
 	level.Debug(c.logger).Log("msg", "points num:", len(samples), " time consume:", time.Since(start))
-	return c.client.Write(bps)
+	return nil
 }
 
 func (c *Client) Read(req *prompb.ReadRequest) (*prompb.ReadResponse, error) {
