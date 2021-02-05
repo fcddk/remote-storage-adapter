@@ -71,7 +71,7 @@ func NewClient(logger log.Logger, conf influx.HTTPConfig, db string, rp string, 
 	//init adapter
 	ada := cli.createAdapterManager(adapterConf)
 	cli.adapter = ada
-	level.Debug(cli.logger).Log("msg", "adapter", ada.measurements)
+	level.Info(cli.logger).Log("msg", "adapter", ada.measurements)
 	return cli
 }
 
@@ -127,7 +127,9 @@ func tagsOrFieldFromMetric(m model.Metric) (map[string]string, map[string]string
 }
 
 func (c *Client) createAdapterManager(conf *config.Config) *adapterManager {
-	adapterM := &adapterManager{measurements: map[string]*measurement{}}
+	adapterM := &adapterManager{}
+	measurementList := make(map[string]*measurement)
+	adapterM.measurements = measurementList
 	for _, meas := range conf.GlobalConfig.MeasurementsWhitelist {
 		_, hasOk := adapterM.measurements[meas]
 		if hasOk {
@@ -161,7 +163,9 @@ func (c *Client) createAdapterManager(conf *config.Config) *adapterManager {
 		if measurementOne.Database == "" {
 			measurementOne.Database = c.database
 		}
-
+		for _, tag := range conf.GlobalConfig.TagsWhitelist {
+			measurementOne.Tags[tag] = true
+		}
 		for _, tagElem := range measConf.Tags {
 			measurementOne.Tags[tagElem] = true
 		}
@@ -173,6 +177,7 @@ func (c *Client) createAdapterManager(conf *config.Config) *adapterManager {
 		for _, label := range measConf.DropLabels {
 			measurementOne.DropLabels[label] = true
 		}
+		adapterM.measurements[measConf.Name] = measurementOne
 	}
 
 	return adapterM

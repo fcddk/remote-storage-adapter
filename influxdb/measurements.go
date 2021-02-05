@@ -1,6 +1,9 @@
 package influxdb
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 var (
 	measurementsWhitelist = make(map[string]bool)
@@ -12,6 +15,10 @@ type measurement struct {
 	Database   string
 	Fields     map[string]bool
 	DropLabels map[string]bool
+}
+
+func (m *measurement) String() string {
+	return fmt.Sprintf("name:%s,database:%s,tags:%v,fields:%v,drop_label:%v", m.Name, m.Database, m.Tags, m.Fields, m.DropLabels)
 }
 
 func UpdateMeasurementsWhitelist(whitelist []string) {
