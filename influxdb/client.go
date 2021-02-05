@@ -20,6 +20,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -70,6 +71,7 @@ func NewClient(logger log.Logger, conf influx.HTTPConfig, db string, rp string, 
 	//init adapter
 	ada := cli.createAdapterManager(adapterConf)
 	cli.adapter = ada
+	level.Debug(cli.logger).Log("msg", "adapter", ada.measurements)
 	return cli
 }
 
@@ -85,8 +87,8 @@ func tagsFromMetric(m model.Metric) map[string]string {
 }
 
 func (c *Client) tagsOrFieldFromMetric(m model.Metric, measurementName string) (map[string]string, map[string]string) {
-	tags := make(map[string]string, len(m)-1)
-	fields := make(map[string]string, len(m)-1)
+	tags := make(map[string]string)
+	fields := make(map[string]string)
 	measurementObj, ok := c.adapter.measurements[measurementName]
 	if ok {
 		for l, v := range m {
@@ -178,6 +180,7 @@ func (c *Client) createAdapterManager(conf *config.Config) *adapterManager {
 
 // Write sends a batch of samples to InfluxDB via its HTTP API.
 func (c *Client) Write(samples model.Samples) error {
+	start := time.Now()
 	points := make([]*influx.Point, 0, len(samples))
 	for _, s := range samples {
 		v := float64(s.Value)
@@ -193,11 +196,16 @@ func (c *Client) Write(samples model.Samples) error {
 		//measure, fieldOne := castrate.CastrateMetricName(measure, string(s.Metric[model.MetricNameLabel]))
 		measure, fieldOne := c.checkSampleBelongToMeasurement(string(s.Metric[model.MetricNameLabel]))
 		if measure == "" {
+			level.Debug(c.logger).Log("msg", "metric", s.Metric[model.MetricNameLabel], "measurement is nil")
+			c.ignoredSamples.Inc()
 			continue
 		}
+		level.Debug(c.logger).Log("msg", "metric", s.Metric[model.MetricNameLabel], "measurement", measure)
 		//metricTags, metricFields := tagsOrFieldFromMetric(s.Metric)
 		metricTags, metricFields := c.tagsOrFieldFromMetric(s.Metric, measure)
 		if len(metricTags) == 0 {
+			level.Debug(c.logger).Log("msg", "metric", s.Metric[model.MetricNameLabel], "tags is nil")
+			c.ignoredSamples.Inc()
 			continue
 		}
 		tags = metricTags
@@ -236,6 +244,7 @@ func (c *Client) Write(samples model.Samples) error {
 		return err
 	}
 	bps.AddPoints(points)
+	level.Debug(c.logger).Log("msg", "points num:", len(samples), " time consume:", time.Since(start))
 	return c.client.Write(bps)
 }
 
