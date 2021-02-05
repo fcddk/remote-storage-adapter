@@ -8,7 +8,8 @@ import (
 )
 
 type Config struct {
-	GlobalConfig GlobalConfig `yaml:"global"`
+	GlobalConfig       GlobalConfig         `yaml:"global"`
+	MeasurementsConfig []*MeasurementConfig `yaml:"measurements,omitempty"`
 }
 
 // LoadFile parses the given YAML file into a Config.

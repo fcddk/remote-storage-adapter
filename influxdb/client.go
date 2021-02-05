@@ -16,7 +16,7 @@ package influxdb
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/fcddk/remote-storage-adapter/castrate"
+	"github.com/fcddk/remote-storage-adapter/config"
 	"math"
 	"os"
 	"strings"
@@ -39,10 +39,11 @@ type Client struct {
 	database        string
 	retentionPolicy string
 	ignoredSamples  prometheus.Counter
+	adapter         *adapterManager
 }
 
 // NewClient creates a new Client.
-func NewClient(logger log.Logger, conf influx.HTTPConfig, db string, rp string) *Client {
+func NewClient(logger log.Logger, conf influx.HTTPConfig, db string, rp string, adapterConf *config.Config) *Client {
 	c, err := influx.NewHTTPClient(conf)
 	// Currently influx.NewClient() *should* never return an error.
 	if err != nil {
@@ -54,7 +55,7 @@ func NewClient(logger log.Logger, conf influx.HTTPConfig, db string, rp string) 
 		logger = log.NewNopLogger()
 	}
 
-	return &Client{
+	cli := &Client{
 		logger:          logger,
 		client:          c,
 		database:        db,
@@ -66,6 +67,10 @@ func NewClient(logger log.Logger, conf influx.HTTPConfig, db string, rp string) 
 			},
 		),
 	}
+	//init adapter
+	ada := cli.createAdapterManager(adapterConf)
+	cli.adapter = ada
+	return cli
 }
 
 // tagsFromMetric extracts InfluxDB tags from a Prometheus metric.
@@ -77,6 +82,29 @@ func tagsFromMetric(m model.Metric) map[string]string {
 		}
 	}
 	return tags
+}
+
+func (c *Client) tagsOrFieldFromMetric(m model.Metric, measurementName string) (map[string]string, map[string]string) {
+	tags := make(map[string]string, len(m)-1)
+	fields := make(map[string]string, len(m)-1)
+	measurementObj, ok := c.adapter.measurements[measurementName]
+	if ok {
+		for l, v := range m {
+			if l != model.MetricNameLabel {
+				_, hasOk := measurementObj.Tags[string(l)]
+				if hasOk {
+					tags[string(l)] = string(v)
+				} else {
+					_, in := measurementObj.DropLabels[string(l)]
+					if in {
+						continue
+					}
+					fields[string(l)] = string(v)
+				}
+			}
+		}
+	}
+	return tags, fields
 }
 
 // tagsFromMetric extracts InfluxDB tags from a Prometheus metric.
@@ -96,6 +124,58 @@ func tagsOrFieldFromMetric(m model.Metric) (map[string]string, map[string]string
 	return tags, fields
 }
 
+func (c *Client) createAdapterManager(conf *config.Config) *adapterManager {
+	adapterM := &adapterManager{measurements: map[string]*measurement{}}
+	for _, meas := range conf.GlobalConfig.MeasurementsWhitelist {
+		_, hasOk := adapterM.measurements[meas]
+		if hasOk {
+			continue
+		}
+		measurementOne := &measurement{
+			Name:       meas,
+			Tags:       map[string]bool{},
+			Database:   c.database,
+			Fields:     nil,
+			DropLabels: nil,
+		}
+		for _, tag := range conf.GlobalConfig.TagsWhitelist {
+			measurementOne.Tags[tag] = true
+		}
+	}
+
+	for _, measConf := range conf.MeasurementsConfig {
+		if measConf.Name == "" {
+			level.Error(c.logger).Log("measurement name is empty")
+			continue
+		}
+		measurementOne := &measurement{
+			Name:       measConf.Name,
+			Tags:       map[string]bool{},
+			Database:   measConf.Database,
+			Fields:     map[string]bool{},
+			DropLabels: map[string]bool{},
+		}
+
+		if measurementOne.Database == "" {
+			measurementOne.Database = c.database
+		}
+
+		for _, tagElem := range measConf.Tags {
+			measurementOne.Tags[tagElem] = true
+		}
+
+		for _, fieldElem := range measConf.Fields {
+			measurementOne.Fields[fieldElem] = true
+		}
+
+		for _, label := range measConf.DropLabels {
+			measurementOne.DropLabels[label] = true
+		}
+	}
+
+	return adapterM
+}
+
 // Write sends a batch of samples to InfluxDB via its HTTP API.
 func (c *Client) Write(samples model.Samples) error {
 	points := make([]*influx.Point, 0, len(samples))
@@ -109,9 +189,17 @@ func (c *Client) Write(samples model.Samples) error {
 		tags := make(map[string]string)
 		fields := make(map[string]interface{})
 		//castrate metric name
-		measure := hasMeasurement(string(s.Metric[model.MetricNameLabel]))
-		measure, fieldOne := castrate.CastrateMetricName(measure, string(s.Metric[model.MetricNameLabel]))
-		metricTags, metricFields := tagsOrFieldFromMetric(s.Metric)
+		//measure := hasMeasurement(string(s.Metric[model.MetricNameLabel]))
+		//measure, fieldOne := castrate.CastrateMetricName(measure, string(s.Metric[model.MetricNameLabel]))
+		measure, fieldOne := c.checkSampleBelongToMeasurement(string(s.Metric[model.MetricNameLabel]))
+		if measure == "" {
+			continue
+		}
+		//metricTags, metricFields := tagsOrFieldFromMetric(s.Metric)
+		metricTags, metricFields := c.tagsOrFieldFromMetric(s.Metric, measure)
+		if len(metricTags) == 0 {
+			continue
+		}
 		tags = metricTags
 		for l, v := range metricFields {
 			fields[l] = v

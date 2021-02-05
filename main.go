@@ -105,21 +105,15 @@ func init() {
 func main() {
 	cfg := parseFlags()
 	logger := promlog.New(&cfg.promlogConfig)
-	//init config
-	whitelistC, err := whitelistConf.LoadFile(cfg.whitelistConfPath)
-	if err != nil {
-		level.Error(logger).Log("msg", "Failed to load whitelist", "err", err)
-		os.Exit(1)
-	}
 
-	//init data
-	influxdb.UpdateMeasurementsWhitelist(whitelistC.GlobalConfig.MeasurementsWhitelist)
-	influxdb.UpdateTagsWhitelist(whitelistC.GlobalConfig.TagsWhitelist)
+	////init data
+	//influxdb.UpdateMeasurementsWhitelist(whitelistC.GlobalConfig.MeasurementsWhitelist)
+	//influxdb.UpdateTagsWhitelist(whitelistC.GlobalConfig.TagsWhitelist)
 
 	http.Handle(cfg.telemetryPath, promhttp.Handler())
 
 	writers, readers := buildClients(logger, cfg)
-	if err = serve(logger, cfg.listenAddr, writers, readers); err != nil {
+	if err := serve(logger, cfg.listenAddr, writers, readers); err != nil {
 		level.Error(logger).Log("msg", "Failed to listen", "addr", cfg.listenAddr, "err", err)
 		os.Exit(1)
 	}
@@ -211,11 +205,18 @@ func buildClients(logger log.Logger, cfg *orginConfig) ([]writer, []reader) {
 			Password: cfg.influxdbPassword,
 			Timeout:  cfg.remoteTimeout,
 		}
+		//init config
+		whitelistC, err := whitelistConf.LoadFile(cfg.whitelistConfPath)
+		if err != nil {
+			level.Error(logger).Log("msg", "Failed to load whitelist", "err", err)
+			os.Exit(1)
+		}
 		c := influxdb.NewClient(
 			log.With(logger, "storage", "InfluxDB"),
 			conf,
 			cfg.influxdbDatabase,
 			cfg.influxdbRetentionPolicy,
+			whitelistC,
 		)
 		prometheus.MustRegister(c)
 		writers = append(writers, c)

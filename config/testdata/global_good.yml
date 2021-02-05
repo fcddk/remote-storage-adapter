@@ -1,3 +1,35 @@
 global:
-  tags_whitelist: ['region','kubernetes_cluster_name','host','instanceId','resource_id','disk_id','path','interface','name','container','pod_name']
-  measurements_whitelist: ['mem','cpu','disk','container_cpu_cfs_throttled','container_cpu','container_memory','container_fs','container_fs_reads','container_fs_writes,container_network_receive','container_network_transmit']
+  tags_whitelist: ['region','kubernetes_cluster_name','host','namespace']
+  measurements_whitelist: ['up']
+
+measurements:
+  - name: mem
+    fields: ['total','used','free','available']
+    drop_labels: ['job','instance']
+    database: system
+
+  - name: cpu
+    tags: ['cpu']
+    fields: ['usage_guest','usage_idle','usage_system']
+    database: system
+
+  - name: disk
+    tags: ['device','path']
+    fields: ['total','used','free','available']
+    drop_labels: ['job','instance']
+    database: system
+  - name: vm_cpu
+    tags: ['resource_id','vm_id']
+    fields: ['busy','idle']
+    database: ecs_db
+
+  - name: vm_mem
+    tags: ['resource_id','vm_id']
+    fields: ['total','used','free','available']
+    drop_labels: ['job','instance']
+    database: ecs_db
+
+  - name: vm_net_if
+    tags: ['resource_id','vm_id']
+    fields: ['in_percent','out_percent']
+    database: ecs_db

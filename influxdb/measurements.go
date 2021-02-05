@@ -6,6 +6,14 @@ var (
 	measurementsWhitelist = make(map[string]bool)
 )
 
+type measurement struct {
+	Name       string
+	Tags       map[string]bool
+	Database   string
+	Fields     map[string]bool
+	DropLabels map[string]bool
+}
+
 func UpdateMeasurementsWhitelist(whitelist []string) {
 	for _, measure := range whitelist {
 		measurementsWhitelist[measure] = true
@@ -22,4 +30,18 @@ func hasMeasurement(name string) string {
 		}
 	}
 	return depthStr
+}
+
+func (c *Client) checkSampleBelongToMeasurement(name string) (measurementName string, fieldName string) {
+	for _, measOne := range c.adapter.measurements {
+		if strings.HasPrefix(name, measOne.Name) {
+			fName := strings.TrimPrefix(name, measOne.Name)
+			_, hasOk := measOne.Fields[fName]
+			if hasOk {
+				return measOne.Name, fName
+			}
+		}
+	}
+
+	return "", ""
 }
