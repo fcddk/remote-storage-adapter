@@ -209,11 +209,13 @@ func (c *Client) Write(samples model.Samples) error {
 			c.ignoredSamples.Inc()
 			continue
 		}
+		level.Info(c.logger).Log("msg", "check measurement", " time_consume:", time.Since(start))
 		level.Debug(c.logger).Log("msg", "info", "metric", s.Metric[model.MetricNameLabel], "measurement", measure)
+		labelStart := time.Now()
 		//metricTags, metricFields := tagsOrFieldFromMetric(s.Metric)
 		metricTags, metricFields := c.tagsOrFieldFromMetric(s.Metric, measure)
 		if len(metricTags) == 0 {
-			level.Debug(c.logger).Log("msg", "metric", s.Metric[model.MetricNameLabel], "tags is nil")
+			level.Info(c.logger).Log("msg", "metric", s.Metric[model.MetricNameLabel], "tags is nil")
 			c.ignoredSamples.Inc()
 			continue
 		}
@@ -232,6 +234,7 @@ func (c *Client) Write(samples model.Samples) error {
 			fields,
 			s.Timestamp.Time(),
 		)
+		level.Info(c.logger).Log("msg", "process tags and fields", " time_consume:", time.Since(labelStart))
 		//p, err := influx.NewPoint(
 		//	string(s.Metric[model.MetricNameLabel]),
 		//	tagsFromMetric(s.Metric),
@@ -276,7 +279,7 @@ func (c *Client) Write(samples model.Samples) error {
 			level.Error(c.logger).Log("msg", "failed to write once", "err", err.Error())
 		}
 	}
-	level.Debug(c.logger).Log("msg", "points num:", len(samples), " time consume:", time.Since(start))
+	level.Info(c.logger).Log("msg", "write points", "num:", len(samples), " time_consume:", time.Since(start))
 	return nil
 }
 
