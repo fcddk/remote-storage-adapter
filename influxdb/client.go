@@ -568,9 +568,13 @@ func (c Client) Name() string {
 // Describe implements prometheus.Collector.
 func (c *Client) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.ignoredSamples.Desc()
+	ch <- c.receiveSamples.Desc()
+	ch <- c.sendSamples.Desc()
 }
 
 // Collect implements prometheus.Collector.
 func (c *Client) Collect(ch chan<- prometheus.Metric) {
 	ch <- c.ignoredSamples
+	ch <- c.receiveSamples
+	ch <- c.sendSamples
 }
