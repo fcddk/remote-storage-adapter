@@ -283,14 +283,15 @@ func (c *Client) Write(samples model.Samples) error {
 		//castrate metric name
 		//measure := hasMeasurement(string(s.Metric[model.MetricNameLabel]))
 		//measure, fieldOne := castrate.CastrateMetricName(measure, string(s.Metric[model.MetricNameLabel]))
+		checkStart := time.Now()
 		measure, fieldOne := c.checkSampleBelongToMeasurement(string(s.Metric[model.MetricNameLabel]))
 		if measure == "" {
 			level.Debug(c.logger).Log("msg", "metric", s.Metric[model.MetricNameLabel], "measurement is nil")
-			level.Info(c.logger).Log("msg", "check measurement", " time_consume:", time.Since(start))
+			level.Info(c.logger).Log("msg", "check measurement", " time_consume:", time.Since(checkStart))
 			c.ignoredSamples.Inc()
 			continue
 		}
-		level.Info(c.logger).Log("msg", "check measurement", " time_consume:", time.Since(start))
+		level.Info(c.logger).Log("msg", "check measurement", " time_consume:", time.Since(checkStart))
 		level.Debug(c.logger).Log("msg", "info", "metric", s.Metric[model.MetricNameLabel], "measurement", measure)
 		labelStart := time.Now()
 		//metricTags, metricFields := tagsOrFieldFromMetric(s.Metric)
