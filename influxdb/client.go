@@ -156,6 +156,25 @@ func (c *Client) createDatabasesManager(logger log.Logger) {
 	}
 	c.databases = map[string]*databasesManager{}
 	for name, measure := range c.adapter.measurements {
+		if len(measure.Fields) == 0 {
+			_, hasOk := c.databases[measure.Database]
+			if !hasOk {
+				c.databases[measure.Database] = &databasesManager{
+					name:         measure.Database,
+					metrics:      map[string]string{},
+					measurements: map[string]*measurement{},
+				}
+			}
+			_, existMeasure := c.databases[measure.Database].measurements[name]
+			if !existMeasure {
+				c.databases[measure.Database].measurements[name] = measure
+			}
+			metricName := name
+			_, existMetric := c.databases[measure.Database].metrics[metricName]
+			if !existMetric {
+				c.databases[measure.Database].metrics[metricName] = name
+			}
+		}
 		for field, _ := range measure.Fields {
 			_, hasOk := c.databases[measure.Database]
 			if !hasOk {
@@ -169,14 +188,24 @@ func (c *Client) createDatabasesManager(logger log.Logger) {
 			if !existMeasure {
 				c.databases[measure.Database].measurements[name] = measure
 			}
-			metricName := name + field
+			metricName := name + "_" + field
 			_, existMetric := c.databases[measure.Database].metrics[metricName]
 			if !existMetric {
 				c.databases[measure.Database].metrics[metricName] = name
 			}
 		}
 	}
-	level.Debug(logger).Log("msg", "process databases data", "databases:%v", c.databases)
+	level.Debug(logger).Log("msg", "process databases data", "databases:%v", c.getDatabasesInfo())
+}
+
+func (c *Client) getDatabasesInfo() string {
+	var info string
+	info = "["
+	for _, m := range c.databases {
+		info = info + m.String() + ","
+	}
+	info = info + "]"
+	return info
 }
 
 func (c *Client) createAdapterManager(conf *config.Config) *adapterManager {
@@ -198,6 +227,7 @@ func (c *Client) createAdapterManager(conf *config.Config) *adapterManager {
 		for _, tag := range conf.GlobalConfig.TagsWhitelist {
 			measurementOne.Tags[tag] = true
 		}
+		adapterM.measurements[meas] = measurementOne
 	}
 
 	for _, measConf := range conf.MeasurementsConfig {
@@ -256,6 +286,7 @@ func (c *Client) Write(samples model.Samples) error {
 		measure, fieldOne := c.checkSampleBelongToMeasurement(string(s.Metric[model.MetricNameLabel]))
 		if measure == "" {
 			level.Debug(c.logger).Log("msg", "metric", s.Metric[model.MetricNameLabel], "measurement is nil")
+			level.Info(c.logger).Log("msg", "check measurement", " time_consume:", time.Since(start))
 			c.ignoredSamples.Inc()
 			continue
 		}
