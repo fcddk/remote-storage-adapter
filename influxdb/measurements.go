@@ -59,17 +59,18 @@ func (c *Client) checkSampleBelongToMeasurement(name string) (measurementName st
 		if dbManager.metrics == nil {
 			continue
 		}
-		measurementName, hasOk := dbManager.metrics[name]
+		measure, hasOk := dbManager.metrics[name]
 		if hasOk {
-			if name == measurementName {
-				return
+			if name == measure {
+				return measure, ""
 			}
-			field := strings.TrimPrefix(name, measurementName)
+			field := strings.TrimPrefix(name, measure)
 			if strings.HasPrefix(field, "_") {
 				fieldName = strings.TrimPrefix(field, "_")
 			} else {
 				fieldName = field
 			}
+			measurementName = measure
 			return
 		}
 	}
