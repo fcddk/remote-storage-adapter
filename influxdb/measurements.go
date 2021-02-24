@@ -40,16 +40,37 @@ func hasMeasurement(name string) string {
 }
 
 func (c *Client) checkSampleBelongToMeasurement(name string) (measurementName string, fieldName string) {
-	for _, measOne := range c.adapter.measurements {
-		if name == measOne.Name {
-			return name, ""
+	//for _, measOne := range c.adapter.measurements {
+	//	if name == measOne.Name {
+	//		return name, ""
+	//	}
+	//	if strings.HasPrefix(name, measOne.Name) {
+	//		fName := strings.TrimPrefix(name, measOne.Name+"_")
+	//		_, hasOk := measOne.Fields[fName]
+	//		if hasOk {
+	//			return measOne.Name, fName
+	//		}
+	//	}
+	//}
+	if c.databases == nil {
+		return
+	}
+	for _, dbManager := range c.databases {
+		if dbManager.metrics == nil {
+			continue
 		}
-		if strings.HasPrefix(name, measOne.Name) {
-			fName := strings.TrimPrefix(name, measOne.Name+"_")
-			_, hasOk := measOne.Fields[fName]
-			if hasOk {
-				return measOne.Name, fName
+		measurementName, hasOk := dbManager.metrics[name]
+		if hasOk {
+			if name == measurementName {
+				return
 			}
+			field := strings.TrimPrefix(name, measurementName)
+			if strings.HasPrefix(field, "_") {
+				fieldName = strings.TrimPrefix(field, "_")
+			} else {
+				fieldName = field
+			}
+			return
 		}
 	}
 

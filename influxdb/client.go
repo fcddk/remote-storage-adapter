@@ -40,7 +40,10 @@ type Client struct {
 	database        string
 	retentionPolicy string
 	ignoredSamples  prometheus.Counter
+	receiveSamples  prometheus.Counter
+	sendSamples     prometheus.Counter
 	adapter         *adapterManager
+	databases       map[string]*databasesManager
 }
 
 // NewClient creates a new Client.
@@ -63,11 +66,24 @@ func NewClient(logger log.Logger, conf influx.HTTPConfig, db string, rp string, 
 		retentionPolicy: rp,
 		ignoredSamples: prometheus.NewCounter(
 			prometheus.CounterOpts{
-				Name: "prometheus_influxdb_ignored_samples_total",
-				Help: "The total number of samples not sent to InfluxDB due to unsupported float values (Inf, -Inf, NaN).",
+				Name: "prometheus_influxdb_adapter_ignored_samples_total",
+				Help: "The total number of samples not sent to InfluxDB due to unsupported float values (Inf, -Inf, NaN), or ignored by checking measurement.",
+			},
+		),
+		receiveSamples: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "prometheus_influxdb_adapter_receive_samples_total",
+				Help: "The total number of samples prometheus remote write.",
+			},
+		),
+		sendSamples: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "prometheus_influxdb_adapter_send_samples_total",
+				Help: "The total number of samples adapter send to influxdb.",
 			},
 		),
 	}
+
 	//init adapter
 	ada := cli.createAdapterManager(adapterConf)
 	if ada == nil {
@@ -75,7 +91,10 @@ func NewClient(logger log.Logger, conf influx.HTTPConfig, db string, rp string, 
 		os.Exit(1)
 	}
 	cli.adapter = ada
-	level.Info(cli.logger).Log("msg", "adapter", ada.String())
+	level.Info(cli.logger).Log("msg", "adapter", "config:", ada.String())
+
+	// init databases
+	cli.createDatabasesManager(logger)
 	return cli
 }
 
@@ -128,6 +147,36 @@ func tagsOrFieldFromMetric(m model.Metric) (map[string]string, map[string]string
 		}
 	}
 	return tags, fields
+}
+
+func (c *Client) createDatabasesManager(logger log.Logger) {
+	if c.adapter == nil {
+		level.Error(logger).Log("err", fmt.Errorf("adapter manager is nil"))
+		os.Exit(1)
+	}
+	c.databases = map[string]*databasesManager{}
+	for name, measure := range c.adapter.measurements {
+		for field, _ := range measure.Fields {
+			_, hasOk := c.databases[measure.Database]
+			if !hasOk {
+				c.databases[measure.Database] = &databasesManager{
+					name:         measure.Database,
+					metrics:      map[string]string{},
+					measurements: map[string]*measurement{},
+				}
+			}
+			_, existMeasure := c.databases[measure.Database].measurements[name]
+			if !existMeasure {
+				c.databases[measure.Database].measurements[name] = measure
+			}
+			metricName := name + field
+			_, existMetric := c.databases[measure.Database].metrics[metricName]
+			if !existMetric {
+				c.databases[measure.Database].metrics[metricName] = name
+			}
+		}
+	}
+	level.Debug(logger).Log("msg", "process databases data", "databases:%v", c.databases)
 }
 
 func (c *Client) createAdapterManager(conf *config.Config) *adapterManager {
@@ -191,6 +240,7 @@ func (c *Client) createAdapterManager(conf *config.Config) *adapterManager {
 func (c *Client) Write(samples model.Samples) error {
 	start := time.Now()
 	points := make(map[string][]*influx.Point)
+	c.receiveSamples.Add(float64(len(samples)))
 	for _, s := range samples {
 		v := float64(s.Value)
 		if math.IsNaN(v) || math.IsInf(v, 0) {
@@ -264,6 +314,7 @@ func (c *Client) Write(samples model.Samples) error {
 	//	return err
 	//}
 	//bps.AddPoints(points)
+	c.sendSamples.Add(float64(len(points)))
 	for name, pointsJob := range points {
 		bps, err := influx.NewBatchPoints(influx.BatchPointsConfig{
 			Precision:       "ms",
