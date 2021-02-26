@@ -132,6 +132,21 @@ func (c *Client) tagsOrFieldFromMetric(m model.Metric, measurementName string) (
 	return tags, fields
 }
 
+func (c *Client) tagsOrFieldFromMetricTenant(m model.Metric) (map[string]string, map[string]string) {
+	tags := make(map[string]string)
+	fields := make(map[string]string)
+	for l, v := range m {
+		if l != model.MetricNameLabel {
+			if string(l) == "region" || string(l) == "account" || string(l) == "resource_id" || string(l) == "resource_name" || string(l) == "service" {
+				tags[string(l)] = string(v)
+			} else {
+				fields[string(l)] = string(v)
+			}
+		}
+	}
+	return tags, fields
+}
+
 // tagsFromMetric extracts InfluxDB tags from a Prometheus metric.
 func tagsOrFieldFromMetric(m model.Metric) (map[string]string, map[string]string) {
 	tags := make(map[string]string, len(m)-1)
@@ -283,58 +298,103 @@ func (c *Client) Write(samples model.Samples) error {
 		//castrate metric name
 		//measure := hasMeasurement(string(s.Metric[model.MetricNameLabel]))
 		//measure, fieldOne := castrate.CastrateMetricName(measure, string(s.Metric[model.MetricNameLabel]))
-		checkStart := time.Now()
-		measure, fieldOne := c.checkSampleBelongToMeasurement(string(s.Metric[model.MetricNameLabel]))
-		if measure == "" {
-			level.Debug(c.logger).Log("msg", "metric", s.Metric[model.MetricNameLabel], "measurement is nil")
-			level.Info(c.logger).Log("msg", "check measurement", " time_consume:", time.Since(checkStart))
-			c.ignoredSamples.Inc()
-			continue
-		}
-		level.Info(c.logger).Log("msg", "check measurement", " time_consume:", time.Since(checkStart))
-		level.Debug(c.logger).Log("msg", "info", "metric", s.Metric[model.MetricNameLabel], "measurement", measure)
-		labelStart := time.Now()
-		//metricTags, metricFields := tagsOrFieldFromMetric(s.Metric)
-		metricTags, metricFields := c.tagsOrFieldFromMetric(s.Metric, measure)
-		if len(metricTags) == 0 {
-			level.Info(c.logger).Log("msg", "metric", s.Metric[model.MetricNameLabel], "tags is nil")
-			c.ignoredSamples.Inc()
-			continue
-		}
-		tags = metricTags
-		for l, v := range metricFields {
-			fields[l] = v
-		}
-		if fieldOne == "" {
+		jobName, jobHas := s.Metric["job"]
+		serviceName, serviceHas := s.Metric["service"]
+		if jobHas && jobName == "service-exporter" && serviceHas {
+			labelStart := time.Now()
+			//metricTags, metricFields := tagsOrFieldFromMetric(s.Metric)
+			metricTags, metricFields := c.tagsOrFieldFromMetric(s.Metric, string(serviceName))
+			if len(metricTags) == 0 {
+				level.Info(c.logger).Log("msg", "metric", s.Metric[model.MetricNameLabel], "tags is nil")
+				c.ignoredSamples.Inc()
+				continue
+			}
+			tags = metricTags
+			for l, v := range metricFields {
+				fields[l] = v
+			}
 			fields["value"] = v
+
+			p, err := influx.NewPoint(
+				string(serviceName),
+				tags,
+				fields,
+				s.Timestamp.Time(),
+			)
+			level.Info(c.logger).Log("msg", "process tags and fields", " time_consume:", time.Since(labelStart))
+			//p, err := influx.NewPoint(
+			//	string(s.Metric[model.MetricNameLabel]),
+			//	tagsFromMetric(s.Metric),
+			//	map[string]interface{}{"value": v},
+			//	s.Timestamp.Time(),
+			//)
+			if err != nil {
+				return err
+			}
+			// todo nil error
+			//if c.adapter == nil {
+			//}
+			_, pOk := points[c.database]
+			if !pOk {
+				points[c.database] = make([]*influx.Point, 0)
+			}
+			points[c.database] = append(points[c.database], p)
+			//points = append(points, p)
 		} else {
-			fields[fieldOne] = v
+			checkStart := time.Now()
+			measure, fieldOne := c.checkSampleBelongToMeasurement(string(s.Metric[model.MetricNameLabel]))
+			if measure == "" {
+				level.Debug(c.logger).Log("msg", "metric", s.Metric[model.MetricNameLabel], "measurement is nil")
+				level.Info(c.logger).Log("msg", "check measurement", " time_consume:", time.Since(checkStart))
+				c.ignoredSamples.Inc()
+				continue
+			}
+			level.Info(c.logger).Log("msg", "check measurement", " time_consume:", time.Since(checkStart))
+			level.Debug(c.logger).Log("msg", "info", "metric", s.Metric[model.MetricNameLabel], "measurement", measure)
+			labelStart := time.Now()
+			//metricTags, metricFields := tagsOrFieldFromMetric(s.Metric)
+			metricTags, metricFields := c.tagsOrFieldFromMetricTenant(s.Metric)
+			if len(metricTags) == 0 {
+				level.Info(c.logger).Log("msg", "metric", s.Metric[model.MetricNameLabel], "tags is nil")
+				c.ignoredSamples.Inc()
+				continue
+			}
+			tags = metricTags
+			for l, v := range metricFields {
+				fields[l] = v
+			}
+			if fieldOne == "" {
+				fields["value"] = v
+			} else {
+				fields[fieldOne] = v
+			}
+			p, err := influx.NewPoint(
+				measure,
+				tags,
+				fields,
+				s.Timestamp.Time(),
+			)
+			level.Info(c.logger).Log("msg", "process tags and fields", " time_consume:", time.Since(labelStart))
+			//p, err := influx.NewPoint(
+			//	string(s.Metric[model.MetricNameLabel]),
+			//	tagsFromMetric(s.Metric),
+			//	map[string]interface{}{"value": v},
+			//	s.Timestamp.Time(),
+			//)
+			if err != nil {
+				return err
+			}
+			// todo nil error
+			//if c.adapter == nil {
+			//}
+			_, pOk := points[c.adapter.measurements[measure].Database]
+			if !pOk {
+				points[c.adapter.measurements[measure].Database] = make([]*influx.Point, 0)
+			}
+			points[c.adapter.measurements[measure].Database] = append(points[c.adapter.measurements[measure].Database], p)
+			//points = append(points, p)
 		}
-		p, err := influx.NewPoint(
-			measure,
-			tags,
-			fields,
-			s.Timestamp.Time(),
-		)
-		level.Info(c.logger).Log("msg", "process tags and fields", " time_consume:", time.Since(labelStart))
-		//p, err := influx.NewPoint(
-		//	string(s.Metric[model.MetricNameLabel]),
-		//	tagsFromMetric(s.Metric),
-		//	map[string]interface{}{"value": v},
-		//	s.Timestamp.Time(),
-		//)
-		if err != nil {
-			return err
-		}
-		// todo nil error
-		//if c.adapter == nil {
-		//}
-		_, pOk := points[c.adapter.measurements[measure].Database]
-		if !pOk {
-			points[c.adapter.measurements[measure].Database] = make([]*influx.Point, 0)
-		}
-		points[c.adapter.measurements[measure].Database] = append(points[c.adapter.measurements[measure].Database], p)
-		//points = append(points, p)
+
 	}
 
 	//bps, err := influx.NewBatchPoints(influx.BatchPointsConfig{
