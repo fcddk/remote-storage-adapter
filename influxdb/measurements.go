@@ -10,11 +10,12 @@ var (
 )
 
 type measurement struct {
-	Name       string
-	Tags       map[string]bool
-	Database   string
-	Fields     map[string]bool
-	DropLabels map[string]bool
+	Name             string
+	Tags             map[string]bool
+	Database         string
+	Fields           map[string]bool
+	IgnoreOtherLabel bool
+	DropLabels       map[string]bool
 }
 
 func (m *measurement) String() string {
@@ -40,18 +41,6 @@ func hasMeasurement(name string) string {
 }
 
 func (c *Client) checkSampleBelongToMeasurement(name string) (measurementName string, fieldName string) {
-	//for _, measOne := range c.adapter.measurements {
-	//	if name == measOne.Name {
-	//		return name, ""
-	//	}
-	//	if strings.HasPrefix(name, measOne.Name) {
-	//		fName := strings.TrimPrefix(name, measOne.Name+"_")
-	//		_, hasOk := measOne.Fields[fName]
-	//		if hasOk {
-	//			return measOne.Name, fName
-	//		}
-	//	}
-	//}
 	if c.databases == nil {
 		return
 	}

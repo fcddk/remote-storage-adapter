@@ -8,7 +8,6 @@ import (
 )
 
 type Config struct {
-	GlobalConfig       GlobalConfig         `yaml:"global"`
 	MeasurementsConfig []*MeasurementConfig `yaml:"measurements,omitempty"`
 }
 

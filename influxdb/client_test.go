@@ -14,6 +14,8 @@
 package influxdb
 
 import (
+	"fmt"
+	whitelistConf "github.com/fcddk/remote-storage-adapter/config"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -103,9 +105,36 @@ testmetric,test_label=test_label_value2 value=5.1234 123456789123
 		Password: "testpass",
 		Timeout:  time.Minute,
 	}
-	c := NewClient(nil, conf, "test_db", "default")
+	//init config
+	whitelistC, err := whitelistConf.LoadFile("../config/testdata/global_good.yml")
+	if err != nil {
+		t.Fatalf("Error parse file: %s", err)
+	}
+	c := NewClient(nil, conf, "test_db", "default", whitelistC)
 
 	if err := c.Write(samples); err != nil {
 		t.Fatalf("Error sending samples: %s", err)
 	}
+}
+
+func TestAdapter(t *testing.T) {
+	//init config
+	conf := influx.HTTPConfig{
+		Addr:     "http://127.0.0.1:8080",
+		Username: "testuser",
+		Password: "testpass",
+		Timeout:  time.Minute,
+	}
+	whitelistC, err := whitelistConf.LoadFile("../config/testdata/global_good.yml")
+	if err != nil {
+		t.Fatalf("Error parse file: %s", err)
+	}
+	//fmt.Println(whitelistC)
+	c := NewClient(nil, conf, "test_db", "default", whitelistC)
+	//fmt.Println(c.adapter.String())
+	//fmt.Println(c.getDatabasesInfo())
+	measure, field := c.checkSampleBelongToMeasurement("up")
+	fmt.Println(measure)
+	fmt.Println(field)
+
 }

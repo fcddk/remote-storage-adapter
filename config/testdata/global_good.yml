@@ -1,35 +1,122 @@
-global:
-  tags_whitelist: ['region','kubernetes_cluster_name','host','namespace']
-  measurements_whitelist: ['up']
-
 measurements:
   - name: mem
-    fields: ['total','used','free','available']
+    fields: ['total','used','free','available','active','inactive','buffered','inactive','slab','available_percent','used_percent','cached','wired','commit_limit','committed_as','dirty','high_free','high_total','huge_page_size','huge_pages_free','huge_pages_total','low_free','low_total','mapped','shared','page_tables','swap_cached','swap_free','swap_total','vmalloc_chunk','vmalloc_total','vmalloc_used','write_back','write_back_tmp']
     drop_labels: ['job','instance']
-    database: system
-
   - name: cpu
     tags: ['cpu']
-    fields: ['usage_guest','usage_idle','usage_system']
-    database: system
-
+    fields: ['usage_guest','usage_guest_nice','usage_idle','usage_system','usage_iowait','usage_irq','usage_nice','usage_softirq','usage_steal','usage_user']
   - name: disk
     tags: ['device','path']
     fields: ['total','used','free','available']
     drop_labels: ['job','instance']
-    database: system
-  - name: vm_cpu
-    tags: ['resource_id','vm_id']
-    fields: ['busy','idle']
-    database: ecs_db
-
-  - name: vm_mem
-    tags: ['resource_id','vm_id']
-    fields: ['total','used','free','available']
+  - name: vm
+    tags: ['resource_id','vm_id','account','resource_name','service']
+    fields: ['cpu_busy','cpu_idle','cpu_guest','cpu_iowait','cpu_irq','cpu_nice','cpu_softirq','cpu_steal','cpu_switches','cpu_system','cpu_user','mem_memtotal','mem_memused','mem_memused_percent','mem_memfree','mem_memfree_percent','mem_swapfree','mem_swapfree_percent','mem_swaptotal','mem_swapused','mem_swapused_percent','net_if_in_percent','net_if_out_percent','load_1min','load_5min','load_15min','kernel_files_allocated','kernel_files_left','kernel_maxfiles','kernel_maxproc','gpu_memory_used_space','gpu_utilization','gpu_encoder_utilization','gpu_decoder_utilization','gpu_power_draw','gpu_memory_utilization']
     drop_labels: ['job','instance']
-    database: ecs_db
 
-  - name: vm_net_if
-    tags: ['resource_id','vm_id']
-    fields: ['in_percent','out_percent']
-    database: ecs_db
+  - name: container_cpu
+    tags: ['container_label_io_kubernetes_container_name','container_label_io_kubernetes_pod_name','container_label_io_kubernetes_pod_namespace']
+    fields: ['cfs_periods_total','cfs_throttled_periods_total','cfs_throttled_seconds_total','load_average_10s','system_seconds_total','usage_seconds_total','user_seconds_total']
+    database: platform
+    drop_labels: ['job','instance','id','image']
+  - name: container_memory
+    tags: ['container_label_io_kubernetes_container_name','container_label_io_kubernetes_pod_name','container_label_io_kubernetes_pod_namespace']
+    fields: ['cache','failcnt','failures_total','mapped_file','max_usage_bytes','rss','swap','usage_bytes','working_set_bytes']
+    database: platform
+    drop_labels: ['job','instance','id','image']
+  - name: container_network
+    tags: ['container_label_io_kubernetes_container_name','container_label_io_kubernetes_pod_name','container_label_io_kubernetes_pod_namespace','interface']
+    fields: ['receive_bytes_total','receive_errors_total','receive_packets_dropped_total','receive_packets_total','transmit_bytes_total','transmit_errors_total','transmit_packets_dropped_total','transmit_packets_total']
+    database: platform
+    drop_labels: ['job','instance','id','image']
+  - name: container_fs
+    tags: ['container_label_io_kubernetes_container_name','container_label_io_kubernetes_pod_name','container_label_io_kubernetes_pod_namespace','device']
+    fields: ['io_current','usage_bytes','reads_bytes_total','writes_bytes_total']
+    database: platform
+    drop_labels: ['job','instance','id','image']
+  - name: container_spec
+    tags: ['container_label_io_kubernetes_container_name','container_label_io_kubernetes_pod_name','container_label_io_kubernetes_pod_namespace']
+    fields: ['cpu_period','cpu_quota','cpu_shares','memory_limit_bytes','reservation_limit_bytes','swap_limit_bytes']
+    database: platform
+    drop_labels: ['job','instance','id','image']
+  - name: container_start_time
+    tags: ['container_label_io_kubernetes_container_name','container_label_io_kubernetes_pod_name','container_label_io_kubernetes_pod_namespace']
+    fields: ['seconds']
+    database: platform
+    drop_labels: ['job','instance','id','image']
+  - name: container_start_time
+    tags: ['container_label_io_kubernetes_container_name','container_label_io_kubernetes_pod_name','container_label_io_kubernetes_pod_namespace']
+    fields: ['seconds']
+    database: platform
+    drop_labels: ['job','instance','id','image']
+
+  - name: kube_node_status_allocatable
+    tags: ['node','resource']
+    fields: ['cpu_cores','pods','memory_bytes']
+    database: platform
+    drop_labels: ['job','instance']
+  - name: kube_node_status_capacity
+    tags: ['node','resource']
+    fields: ['cpu_cores','pods','memory_bytes']
+    database: platform
+    drop_labels: ['job','instance']
+  - name: kube_node_status_condition
+    tags: ['node']
+    database: platform
+    drop_labels: ['job','instance']
+
+  - name: kube_pod_status
+    tags: ['namespace','pod']
+    fields: ['phase','ready','scheduled','scheduled_time']
+    database: platform
+    drop_labels: ['job','instance']
+  - name: kube_pod_container_status
+    tags: ['namespace','pod','container']
+    fields: ['running','ready','terminated','waiting','restarts_total']
+    database: platform
+    drop_labels: ['job','instance']
+
+  - name: kubelet_running
+    fields: ['container_count','pod_count']
+    database: platform
+    drop_labels: ['job','instance']
+  - name: kubelet_container_log_filesystem
+    tags: ['namespace','pod','container']
+    fields: ['used_bytes']
+    database: platform
+    drop_labels: ['job','instance']
+  - name: kubelet_node
+    fields: ['name','config_error']
+    database: platform
+    drop_labels: ['job','instance']
+  - name: kubelet_volume_stats
+    tags: ['namespace','persistentvolumeclaim']
+    fields: ['capacity_bytes','used_bytes','available_bytes','inodes','inodes_free','inodes_used']
+    database: platform
+    drop_labels: ['job','instance']
+
+  - name: libvirt_up
+    database: platform
+    drop_labels: ['job','instance']
+  - name: libvirt_domains_number
+    database: platform
+    drop_labels: ['job','instance']
+  - name: libvirt_domain_info
+    tags: ['domain','instanceId','instanceName','projectId','projectName','userId','userName']
+    fields: ['cpu_time_seconds_total','virtual_cpus','maximum_memory_bytes','memory_usage_bytes']
+    database: platform
+    drop_labels: ['job','instance']
+  - name: libvirt_domain_qemu_guest_qga_running
+    tags: ['domain','instanceId','instanceName','projectId','projectName','userId','userName']
+    fields: ['cpu_time_seconds_total','virtual_cpus','maximum_memory_bytes','memory_usage_bytes']
+    database: platform
+    drop_labels: ['job','instance']
+  - name: libvirt_domain_state_code
+    tags: ['domain','instanceId','instanceName','projectId','projectName','userId','userName']
+    fields: ['cpu_time_seconds_total','virtual_cpus','maximum_memory_bytes','memory_usage_bytes']
+    database: platform
+    drop_labels: ['job','instance']
+
+
+
+
